@@ -10,6 +10,8 @@ const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfM
 
 
 
+
+
 // =========================
 //  工具函数：入口类型 + 事件上报
 // =========================
@@ -17,30 +19,37 @@ const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfM
 const VALID_ENTRY_TYPES = ["nfc", "qr"];
 
 // 带“记忆”的入口类型：
-// 1) URL 上有 ?entry=nfc/qr → 用它并写入 localStorage
-// 2) URL 没有 → 尝试从 localStorage 取上一次的
-// 3) 都没有 → 返回 "unknown"
+// 1) URL 有 ?entry=nfc / qr → 用它并写入 localStorage
+// 2) URL 有 ?entry=test → 专用测试模式，不写 localStorage
+// 3) URL 没有 → 尝试从 localStorage 拿上一次的 nfc/qr
+// 4) 以上都不满足 → "unknown"
 function getEntryType() {
   try {
     const params = new URLSearchParams(window.location.search);
-    let entry = (params.get("entry") || "").toLowerCase();
+    const entryParam = (params.get("entry") || "").toLowerCase();
 
-    if (VALID_ENTRY_TYPES.includes(entry)) {
-      // 记忆当前设备的入口类型（这次是通过 QR 或 NFC）
-      try {
-        localStorage.setItem("bridge_last_entry_type", entry);
-      } catch (e) {}
-      return entry;
+    // 测试模式：entry=test，不记日志，也不记忆到 localStorage
+    if (entryParam === "test") {
+      return "test";
     }
 
-    // 没带参数，就看这台设备以前是否用过 QR/NFC 打开
+    // nfc / qr：本次访问的明确入口，并写入“记忆”
+    if (VALID_ENTRY_TYPES.includes(entryParam)) {
+      try {
+        localStorage.setItem("bridge_last_entry_type", entryParam);
+      } catch (e) {}
+      return entryParam;
+    }
+
+    // 没有参数时，看这台设备以前是否用过 nfc/qr 打开
     try {
       const stored = (localStorage.getItem("bridge_last_entry_type") || "").toLowerCase();
       if (VALID_ENTRY_TYPES.includes(stored)) {
-        return stored; // 把后续访问也归入原来的入口类型
+        return stored; // 把后续访问继续归入原入口类型
       }
     } catch (e) {}
 
+    // 完全未知的情况
     return "unknown";
   } catch (e) {
     return "unknown";
@@ -51,18 +60,15 @@ const ENTRY_TYPE = getEntryType();
 
 // 统一打点函数
 function logEvent(eventType) {
-  // 关键：只有“这台设备曾经通过 QR 或 NFC 打开过”才记日志
-  // 这样：
-//  - 真正参与实验的游客（第一次一定是 QR/NFC）→ 全部被统计
-//  - 你在 PC 上纯预览（从没带过 entry 参数）→ 一直是 unknown，不会写入 Sheet
-  if (!VALID_ENTRY_TYPES.includes(ENTRY_TYPE)) {
+  // 专用测试模式：entry=test → 一切不记录
+  if (ENTRY_TYPE === "test") {
     return;
   }
 
   const payload = {
     client_timestamp: new Date().toISOString(),
     event_type: eventType,   // "page_view" / "revisit" / "padlet_open"
-    entry_type: ENTRY_TYPE   // "nfc" / "qr"
+    entry_type: ENTRY_TYPE   // "nfc" / "qr" / "unknown"
   };
 
   try {
