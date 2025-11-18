@@ -51,8 +51,8 @@ body {
 /* 三个卡片基础样式 */
 .topic {
   position: absolute;
-  width: 80%;
-  max-width: 520px;
+  width: 100%;
+  max-width: 650px;
   animation-name: floatY;
   animation-duration: 4s;
   animation-timing-function: ease-in-out;
@@ -102,8 +102,8 @@ body {
 }
 
 .tap-button-img {
-  width: 80%;
-  max-width: 520px;
+  width: 100%;
+  max-width: 650px;
   cursor: pointer;
   animation: tapBlink 1.6s ease-in-out infinite;
 }
