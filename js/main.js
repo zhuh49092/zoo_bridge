@@ -9,7 +9,9 @@ const PADLET_URL = "https://padlet.com/zhuh49092/padlet-qwdsdjhu5gjina6n";
 const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfMCdesI3ycYGPWLBTWrmjPpAMWRKQ3PqoX8cBt6myxGsgIbGqNM/exec";
 
 
-
+// ③ 再进入(revisit)的最小间隔（毫秒）
+//    比如 60000 = 1 分钟；300000 = 5 分钟
+const MIN_REVISIT_INTERVAL_MS = 10000;
 
 
 // =========================
