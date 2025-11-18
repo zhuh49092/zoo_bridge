@@ -1,0 +1,131 @@
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+/* 电脑上让整个竖屏画布居中显示 */
+body {
+  background-color: #233220; /* 外围深绿背景 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+}
+
+/* 📌 固定画布=720×1280，严格保持比例 */
+.page-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 720px;        /* 和你的背景宽度一致 */
+  aspect-ratio: 720 / 1280;
+  overflow: hidden;
+}
+
+/* 背景层：完全贴合画布，不会裁切 */
+.bg-layer {
+  position: absolute;
+  inset: 0;
+  background-image: url("../assets/bg/splash_bg.png");
+  background-size: 100% 100%;       /* 关键：强制按原比例填满画布 */
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 1;
+}
+
+/* 主题图层 */
+.topics-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 三个卡片基础样式 */
+.topic {
+  position: absolute;
+  width: 80%;
+  max-width: 520px;
+  animation-name: floatY;
+  animation-duration: 4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* 📌 精准位置（按 720×1280 比例微调后的版本） */
+
+/* 自然の発見 block */
+.topic-nature {
+  top: 10%;     /* 比例换算后微调过的值 */
+  left: 10%;
+  animation-delay: 0s;
+}
+
+/* イベントについて block */
+.topic-event {
+  top: 15%;
+  right: 5%;
+  animation-delay: 0.3s;
+}
+
+/* 周辺やグルメ block */
+.topic-gourmet {
+  top: 20%;
+  left: 13%;
+  animation-delay: 0.6s;
+}
+
+/* 上下轻微浮动动画 */
+@keyframes floatY {
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(-4px); }
+  50%  { transform: translateY(0); }
+  75%  { transform: translateY(4px); }
+  100% { transform: translateY(0); }
+}
+
+/* TAP PNG 按钮 */
+.tap-container {
+  position: absolute;
+  bottom: 6%;      /* 基于比例调整 */
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 3;
+}
+
+.tap-button-img {
+  width: 70%;
+  max-width: 420px;
+  cursor: pointer;
+  animation: tapBlink 1.6s ease-in-out infinite;
+}
+
+/* TAP 按钮闪烁 */
+@keyframes tapBlink {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+/* 点击缩放反馈 */
+.tap-button-img:active {
+  transform: scale(0.96);
+}
+
+/* 手机小屏微调 */
+@media (max-width: 480px) {
+  .topic {
+    width: 80%;
+  }
+  .tap-button-img {
+    width: 70%;
+  }
+}
