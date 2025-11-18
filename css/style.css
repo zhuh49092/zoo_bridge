@@ -70,14 +70,14 @@ body {
 
 /* イベントについて block */
 .topic-event {
-  top: 15%;
+  top: 13%;
   right: 5%;
   animation-delay: 0.3s;
 }
 
 /* 周辺やグルメ block */
 .topic-gourmet {
-  top: 20%;
+  top: 16%;
   left: 13%;
   animation-delay: 0.6s;
 }
@@ -102,8 +102,8 @@ body {
 }
 
 .tap-button-img {
-  width: 70%;
-  max-width: 420px;
+  width: 80%;
+  max-width: 520px;
   cursor: pointer;
   animation: tapBlink 1.6s ease-in-out infinite;
 }
