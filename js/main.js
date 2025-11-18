@@ -9,21 +9,38 @@ const PADLET_URL = "https://padlet.com/zhuh49092/padlet-qwdsdjhu5gjina6n";
 const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfMCdesI3ycYGPWLBTWrmjPpAMWRKQ3PqoX8cBt6myxGsgIbGqNM/exec";
 
 
-// ③ 再进入(revisit)的最小间隔（毫秒）
-//    比如 60000 = 1 分钟；300000 = 5 分钟
-const MIN_REVISIT_INTERVAL_MS = 60000;
-
 
 // =========================
-//  工具函数
+//  工具函数：入口类型 + 事件上报
 // =========================
 
-// 从 URL 里读入口类型 ?entry=nfc / ?entry=qr
+const VALID_ENTRY_TYPES = ["nfc", "qr"];
+
+// 带“记忆”的入口类型：
+// 1) URL 上有 ?entry=nfc/qr → 用它并写入 localStorage
+// 2) URL 没有 → 尝试从 localStorage 取上一次的
+// 3) 都没有 → 返回 "unknown"
 function getEntryType() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const entry = (params.get("entry") || "").toLowerCase();
-    if (entry === "nfc" || entry === "qr") return entry;
+    let entry = (params.get("entry") || "").toLowerCase();
+
+    if (VALID_ENTRY_TYPES.includes(entry)) {
+      // 记忆当前设备的入口类型（这次是通过 QR 或 NFC）
+      try {
+        localStorage.setItem("bridge_last_entry_type", entry);
+      } catch (e) {}
+      return entry;
+    }
+
+    // 没带参数，就看这台设备以前是否用过 QR/NFC 打开
+    try {
+      const stored = (localStorage.getItem("bridge_last_entry_type") || "").toLowerCase();
+      if (VALID_ENTRY_TYPES.includes(stored)) {
+        return stored; // 把后续访问也归入原来的入口类型
+      }
+    } catch (e) {}
+
     return "unknown";
   } catch (e) {
     return "unknown";
@@ -32,12 +49,20 @@ function getEntryType() {
 
 const ENTRY_TYPE = getEntryType();
 
-// 统一的打点函数
+// 统一打点函数
 function logEvent(eventType) {
+  // 关键：只有“这台设备曾经通过 QR 或 NFC 打开过”才记日志
+  // 这样：
+//  - 真正参与实验的游客（第一次一定是 QR/NFC）→ 全部被统计
+//  - 你在 PC 上纯预览（从没带过 entry 参数）→ 一直是 unknown，不会写入 Sheet
+  if (!VALID_ENTRY_TYPES.includes(ENTRY_TYPE)) {
+    return;
+  }
+
   const payload = {
     client_timestamp: new Date().toISOString(),
     event_type: eventType,   // "page_view" / "revisit" / "padlet_open"
-    entry_type: ENTRY_TYPE   // "nfc" / "qr" / "unknown"
+    entry_type: ENTRY_TYPE   // "nfc" / "qr"
   };
 
   try {
@@ -56,7 +81,7 @@ function logEvent(eventType) {
 
 
 // =========================
-//  页面初始化
+//  页面初始化 & 事件绑定
 // =========================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -65,8 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 1) 进入页面（真正 reload）记一次 page_view
   logEvent("page_view");
 
-  // 用 sessionStorage 记录当前标签页上一次记录时间
-  // 这样同一个 tab 内的可见 / 再进入可以做节流
+  // 用 sessionStorage 控制“同一标签页的节流”
   sessionStorage.setItem("bridge_last_log_time", String(now));
 
   // 2) 绑定 TAP 按钮点击事件
@@ -74,14 +98,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (tapButton) {
     tapButton.addEventListener("click", (e) => {
       e.preventDefault();
-
-      // 先打点，再开新窗口
       logEvent("padlet_open");
       window.open(PADLET_URL, "_blank", "noopener");
     });
   }
 
-  // 3) 监听标签页从后台回到前台（“再进入”）
+  // 3) 监听标签页从后台回到前台（再进入）
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       const now = Date.now();
