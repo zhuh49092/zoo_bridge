@@ -3,7 +3,7 @@
 // =========================
 
 // ① PADLET 链接（替换成你的 Padlet URL）
-const PADLET_URL = "https://padlet.com/your_link_here";
+const PADLET_URL = "https://padlet.com/zhuh49092/padlet-qwdsdjhu5gjina6n";
 
 // ② Google Apps Script Web App 的 URL（替换成你的部署地址）
 const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfMCdesI3ycYGPWLBTWrmjPpAMWRKQ3PqoX8cBt6myxGsgIbGqNM/exec";
