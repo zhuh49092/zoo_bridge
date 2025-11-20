@@ -14,22 +14,14 @@ const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfM
 const MIN_REVISIT_INTERVAL_MS = 10000;
 
 
-// =========================
-//  入口类型 & 事件上报
-// =========================
-
-// 只看当前 URL 上的 entry
-// ?entry=nfc  → "nfc"
-// ?entry=qr   → "qr"
-// ?entry=test → "test"（调试用，完全不记日志）
-// 其它 / 没有 → "unknown"
+// 入口类型：nfc / qr / test / unknown
 function getEntryType() {
   try {
     const params = new URLSearchParams(window.location.search);
     const entryParam = (params.get("entry") || "").toLowerCase();
 
     if (entryParam === "test") {
-      return "test";
+      return "test"; // 专用测试模式：完全不记录
     }
     if (entryParam === "nfc" || entryParam === "qr") {
       return entryParam;
@@ -40,7 +32,29 @@ function getEntryType() {
   }
 }
 
+// 角色：organizer / visitor
+function getRoleType() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const roleParam = (params.get("role") || "").toLowerCase();
+
+    if (roleParam === "organizer") {
+      return "organizer";
+    }
+    // 默认视为一般来园者
+    return "visitor";
+  } catch (e) {
+    return "visitor";
+  }
+}
+
 const ENTRY_TYPE = getEntryType();
+const ROLE_TYPE  = getRoleType();
+
+
+// =========================
+//  事件上报函数
+// =========================
 
 function logEvent(eventType) {
   // 专用测试模式：?entry=test → 一切不记录
@@ -50,8 +64,9 @@ function logEvent(eventType) {
 
   const payload = {
     client_timestamp: new Date().toISOString(),
-    event_type: eventType,   // "page_view" / "revisit" / "padlet_open"
-    entry_type: ENTRY_TYPE   // "nfc" / "qr" / "unknown"
+    event_type: eventType,      // "page_view" / "revisit" / "padlet_open"
+    entry_type: ENTRY_TYPE,     // "nfc" / "qr" / "unknown"
+    role: ROLE_TYPE             // "organizer" / "visitor"
   };
 
   try {
