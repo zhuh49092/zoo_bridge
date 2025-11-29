@@ -1,20 +1,24 @@
 // =========================
-// 🔧 需要你手动修改的两个常量
+//  可修改的常量
 // =========================
 
-// ① PADLET 链接（替换成你的 Padlet URL）
+// ① 你的 Padlet 链接（你现在已经填好了）
 const PADLET_URL = "https://padlet.com/zhuh49092/padlet-qwdsdjhu5gjina6n";
 
-// ② Google Apps Script Web App 的 URL（替换成你的部署地址）
+// ② Google Apps Script Web App 的 URL（你现有在用的那个）
 const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbzc2r3Vl8L6u4pePfMCdesI3ycYGPWLBTWrmjPpAMWRKQ3PqoX8cBt6myxGsgIbGqNM/exec";
-
 
 // ③ 再进入(revisit)的最小间隔（毫秒）
 //    比如 60000 = 1 分钟；300000 = 5 分钟
+//    你之前设置的是 10000（10 秒），我先帮你保留
 const MIN_REVISIT_INTERVAL_MS = 10000;
 
 
-// 入口类型：nfc / qr / test / unknown
+// =========================
+//  URL 参数解析
+// =========================
+
+// 入口类型：nfc / qr / newspaper / test / unknown
 function getEntryType() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -23,7 +27,7 @@ function getEntryType() {
     if (entryParam === "test") {
       return "test"; // 专用测试模式：完全不记录
     }
-    if (entryParam === "nfc" || entryParam === "qr") {
+    if (entryParam === "nfc" || entryParam === "qr" || entryParam === "newspaper") {
       return entryParam;
     }
     return "unknown";
@@ -41,7 +45,7 @@ function getRoleType() {
     if (roleParam === "organizer") {
       return "organizer";
     }
-    // 默认视为一般来园者
+    // 默认视为一般来園者
     return "visitor";
   } catch (e) {
     return "visitor";
@@ -50,6 +54,111 @@ function getRoleType() {
 
 const ENTRY_TYPE = getEntryType();
 const ROLE_TYPE  = getRoleType();
+
+
+// =========================
+//  匿名 UID & storage 稳定性检测
+// =========================
+
+// 生成一个匿名 UID
+function generateUid() {
+  const ts = Date.now();
+  const rand = Math.floor(Math.random() * 1e9);
+  return `zuid_${ts}_${rand}`;
+}
+
+// 读取 cookie
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop().split(";").shift() || "";
+  }
+  return "";
+}
+
+// 设置 cookie（默认 365 天）
+function setCookie(name, value, days) {
+  const d = new Date();
+  d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+  const expires = "expires=" + d.toUTCString();
+  document.cookie = `${name}=${value}; ${expires}; path=/`;
+}
+
+// 初始化 UID 和 storage 状态
+function initUidAndStorageStatus() {
+  let uidLs = "";
+  let uidCk = "";
+
+  try {
+    uidLs = localStorage.getItem("zoo_bridge_uid") || "";
+  } catch (e) {
+    uidLs = "";
+  }
+
+  uidCk = getCookie("zoo_bridge_uid") || "";
+
+  // 两边都没有 → 第一次访问
+  if (!uidLs && !uidCk) {
+    const newUid = generateUid();
+    try {
+      localStorage.setItem("zoo_bridge_uid", newUid);
+    } catch (e) {}
+    setCookie("zoo_bridge_uid", newUid, 365);
+    return {
+      uid: newUid,
+      storage_status: "first_visit"
+    };
+  }
+
+  // 两边都有且相等 → 状态稳定
+  if (uidLs && uidCk && uidLs === uidCk) {
+    return {
+      uid: uidLs,
+      storage_status: "ok_both"
+    };
+  }
+
+  // cookie 有，localStorage 没有或不同 → localStorage 曾丢失
+  if ((!uidLs && uidCk) || (uidLs && uidCk && uidLs !== uidCk)) {
+    const canonicalUid = uidCk || uidLs;
+    if (canonicalUid) {
+      try {
+        localStorage.setItem("zoo_bridge_uid", canonicalUid);
+      } catch (e) {}
+      setCookie("zoo_bridge_uid", canonicalUid, 365);
+      return {
+        uid: canonicalUid,
+        storage_status: uidLs ? "mismatch_both" : "ls_lost_ck_ok"
+      };
+    }
+  }
+
+  // localStorage 有，cookie 没有 → cookie 丢失
+  if (uidLs && !uidCk) {
+    setCookie("zoo_bridge_uid", uidLs, 365);
+    return {
+      uid: uidLs,
+      storage_status: "ck_lost_ls_ok"
+    };
+  }
+
+  // 兜底：如果还是没拿到，就重新生成
+  const fallbackUid = generateUid();
+  try {
+    localStorage.setItem("zoo_bridge_uid", fallbackUid);
+  } catch (e) {}
+  setCookie("zoo_bridge_uid", fallbackUid, 365);
+  return {
+    uid: fallbackUid,
+    storage_status: "fallback_new"
+  };
+}
+
+// 计算本次会话的 uid & storage_status（在本次页面生命周期内保持不变）
+const UID_INFO = initUidAndStorageStatus();
+const DEVICE_UID = UID_INFO.uid || "";
+const STORAGE_STATUS = UID_INFO.storage_status || "";
 
 
 // =========================
@@ -65,8 +174,10 @@ function logEvent(eventType) {
   const payload = {
     client_timestamp: new Date().toISOString(),
     event_type: eventType,      // "page_view" / "revisit" / "padlet_open"
-    entry_type: ENTRY_TYPE,     // "nfc" / "qr" / "unknown"
-    role: ROLE_TYPE             // "organizer" / "visitor"
+    entry_type: ENTRY_TYPE,     // "nfc" / "qr" / "newspaper" / "unknown"
+    role: ROLE_TYPE,            // "organizer" / "visitor"
+    uid: DEVICE_UID,            // 匿名设备 ID
+    storage_status: STORAGE_STATUS // 当前检测到的存储状态
   };
 
   try {
